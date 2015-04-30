@@ -13,11 +13,11 @@ var db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
 
 var userText = {
-  help: 'commands: points (display points)'
+  help: 'commands: points [user] (display user\'s points, defaults to you)'
 };
 var mode7Text = {
   help: 'commands (mode7 only): award <number> <user>, deduct <number> <user>'
-}
+};
 
 var userSchema = mongoose.Schema({
   screen_name: String,
@@ -64,7 +64,7 @@ function app () {
           awardPoints(tweet, args, response, tweetResponse);
           break;
         case 'points':
-          getPoints(tweet, response, tweetResponse);
+          getPoints(tweet, args, response, tweetResponse);
           break;
         default:
           tweetResponse(response + 'usage: @paul_points command [args] ("help" for a list of commands)', tweet);
@@ -75,7 +75,7 @@ function app () {
           getHelpText(tweet, response, tweetResponse);
           break;
         case 'points':
-          getPoints(tweet, response, tweetResponse);
+          getPoints(tweet, args, response, tweetResponse);
           break; 
         default:
           tweetResponse(response + 'usage: @paul_points command [args] ("help" for a list of commands)', tweet);
@@ -85,6 +85,10 @@ function app () {
 }
 
 function tweetResponse(response, tweet) {
+  if (process.env.ENVIRONMENT !== 'PRODUCTION') {
+    return console.log('Would have tweeted:', response);
+  }
+
   T.post('statuses/update', {status: response, in_reply_to_status_id: tweet.id_str}, function(err, data, response) {
     if (err) {
       console.error(err);
@@ -109,12 +113,20 @@ var responseData = {
   points: 0
 };
 
-function getPoints(tweet, response, cb) {
+function getPoints(tweet, args, response, cb) {
   response += 'points: ';
   responseData.callback = cb;
   responseData.response = response;
 
-  User.findOne({screen_name: tweet.user.screen_name}, function (err, result) {
+  var screenName = '';
+
+  if (args.length === 3 && args[2] !== '') {
+    screenName = (args[2].indexOf('@') === 0 ? args[2].substring(1) : args[2]);
+  } else {
+    screenName = tweet.user.screen_name;
+  }
+
+  User.findOne({screen_name: screenName}, function (err, result) {
     if (err) {
       console.error(err);
     }
@@ -125,16 +137,6 @@ function getPoints(tweet, response, cb) {
 
     responseData.callback(responseData.response + result.points, tweet);
   });
-}
-
-function savePoints(err, result) {
-  if (!result) {
-    var user = new User({screen_name: responseData.screenName, points: responseData.points});
-    user.save();
-  } else {
-    result.awardPoints(responseData.points);
-    result.save();
-  }
 }
 
 function awardPoints(tweet, args, response, cb) {
@@ -151,10 +153,27 @@ function awardPoints(tweet, args, response, cb) {
 
   responseData.screenName = screenName;
   responseData.points = points;
+  responseData.response = response;
+  responseData.callback = cb;
 
-  User.findOne({screen_name: screenName}, savePoints);
+  User.findOne({screen_name: screenName}, function (err, result) {
+    if (err) {
+      console.error(err);
+    }
 
-  cb(response, tweet);
+    var points = responseData.points;
+
+    if (!result) {
+      var user = new User({screen_name: responseData.screenName, points: responseData.points});
+      user.save();
+    } else {
+      result.awardPoints(responseData.points);
+      result.save();
+      points = result.points;
+    }
+
+    responseData.callback(responseData.response + ' New total: ' + points, tweet);
+  });
 }
 
 db.once('open', app);
