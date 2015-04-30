@@ -36,13 +36,19 @@ function app () {
   var stream = T.stream('user');
 
   stream.on('tweet', function (tweet) {
-    if (tweet.user.id === 3224450463) {
-      return;
-    }
-
     var args = tweet.text.split(' ');
     console.log(tweet);
     console.log(args);
+
+    // Don't bother with own tweets, retweets
+    if (tweet.user.id === 3224450463 || tweet.retweeted) {
+      return;
+    }
+
+    // Don't bother with tweets not directed at the bot
+    if (args[0].indexOf('paul_points') === -1) {
+      return;
+    }
 
     var response = '@' + tweet.user.screen_name + ' ';
 
@@ -61,7 +67,7 @@ function app () {
           getPoints(tweet, response, tweetResponse);
           break;
         default:
-          tweetResponse(response + 'usage: @paul_points command [args] ("help" for a list of commands)');
+          tweetResponse(response + 'usage: @paul_points command [args] ("help" for a list of commands)', tweet);
       }
     } else {
       switch (args[1]) {
@@ -72,14 +78,14 @@ function app () {
           getPoints(tweet, response, tweetResponse);
           break; 
         default:
-          tweetResponse(response + 'usage: @paul_points command [args] ("help" for a list of commands)');
+          tweetResponse(response + 'usage: @paul_points command [args] ("help" for a list of commands)', tweet);
       }
     }
   });
 }
 
-function tweetResponse(response) {
-  T.post('statuses/update', {status: response}, function(err, data, response) {
+function tweetResponse(response, tweet) {
+  T.post('statuses/update', {status: response, in_reply_to_status_id: tweet.id_str}, function(err, data, response) {
     if (err) {
       console.error(err);
     }
@@ -93,7 +99,7 @@ function getHelpText(tweet, response, cb) {
     response += userText.help;
   }
 
-  cb(response);
+  cb(response, tweet);
 }
 
 var responseData = {
@@ -104,7 +110,7 @@ var responseData = {
 };
 
 function getPoints(tweet, response, cb) {
-  response += ' points: ';
+  response += 'points: ';
   responseData.callback = cb;
   responseData.response = response;
 
@@ -134,7 +140,7 @@ function savePoints(err, result) {
 function awardPoints(tweet, args, response, cb) {
   var points = parseInt(args[2]);
   if (args.length !== 4 || !points) {
-    return cb(response + 'when is SYNTAX ERROR announced for smash bros');
+    return cb(response + 'when is SYNTAX ERROR announced for smash bros', tweet);
   }
   
   var screenName = (args[3].indexOf('@') === 0 ? args[3].substring(1) : args[3]);  
@@ -148,7 +154,7 @@ function awardPoints(tweet, args, response, cb) {
 
   User.findOne({screen_name: screenName}, savePoints);
 
-  cb(response);
+  cb(response, tweet);
 }
 
 db.once('open', app);
