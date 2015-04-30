@@ -2,13 +2,13 @@ var Twit = require('twit');
 var mongoose = require('mongoose');
 
 var T = new Twit({
-  consumer_key:         TWIT_CONSUMER_KEY,
-  consumer_secret:      TWIT_CONSUMER_SECRET,
-  access_token:         TWIT_ACCESS_TOKEN,
-  access_token_secret:  TWIT_ACCESS_TOKEN_SECRET
+  consumer_key:         process.env.TWIT_CONSUMER_KEY,
+  consumer_secret:      process.env.TWIT_CONSUMER_SECRET,
+  access_token:         process.env.TWIT_ACCESS_TOKEN,
+  access_token_secret:  process.env.TWIT_ACCESS_TOKEN_SECRET
 });
 
-mongoose.connect('mongodb://localhost/paul_points');
+mongoose.connect(process.env.MONGOLAB_URI);
 var db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
 
@@ -46,7 +46,7 @@ function app () {
 
     var response = '@' + tweet.user.screen_name + ' ';
 
-    if (tweet.user.screen_name === 'dj_madeira') {
+    if (tweet.user.screen_name === process.env.MODE7HANDLE) {
       switch(args[1]) {
         case 'help':
           getHelpText(tweet, response, tweetResponse);
@@ -79,7 +79,6 @@ function app () {
 }
 
 function tweetResponse(response) {
-  console.log(response);
   T.post('statuses/update', {status: response}, function(err, data, response) {
     if (err) {
       console.error(err);
@@ -88,13 +87,11 @@ function tweetResponse(response) {
 }
 
 function getHelpText(tweet, response, cb) {
-  if (tweet.user.screen_name === 'dj_madeira') {
+  if (tweet.user.screen_name === process.env.MODE7HANDLE) {
     response += mode7Text.help;
   } else {
     response += userText.help;
   }
-
-  console.log(response);
 
   cb(response);
 }
@@ -116,8 +113,6 @@ function getPoints(tweet, response, cb) {
       console.error(err);
     }
 
-    console.log(result);
-
     if (!result) {
       return responseData.callback(responseData.response + '0.');
     }
@@ -138,11 +133,13 @@ function savePoints(err, result) {
 
 function awardPoints(tweet, args, response, cb) {
   var points = parseInt(args[2]);
-  var newTotal = points;
+  if (args.length !== 4 || !points) {
+    return cb(response + 'when is SYNTAX ERROR announced for smash bros');
+  }
   
   var screenName = (args[3].indexOf('@') === 0 ? args[3].substring(1) : args[3]);  
 
-  response += '@'+ screenName +' awarded '+ points +' points.';
+  response += '@'+ screenName +(args[1] === 'deduct' ? ' deducted ' : ' awarded ')+ points +' points.';
 
   points = (args[1] === 'deduct' ? -points : points);
 
