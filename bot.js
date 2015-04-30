@@ -120,10 +120,10 @@ function getPoints(tweet, response, cb) {
     }
 
     if (!result) {
-      return responseData.callback(responseData.response + '0.');
+      return responseData.callback(responseData.response + '0.', tweet);
     }
 
-    responseData.callback(responseData.response + result.points);
+    responseData.callback(responseData.response + result.points, tweet);
   });
 }
 
