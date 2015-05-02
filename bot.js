@@ -193,7 +193,7 @@ function getTopScorers(tweet, args, response, cb) {
 
   var query = User.find({});
     query.select('screen_name points')
-    .sort('points')
+    .sort('-points')
     .limit(3)
     .exec(function (err, result) {
       if (err) {
