@@ -9,6 +9,7 @@
   "author": "DJ Madeira",
   "license": "ISC",
   "dependencies": {
+    "hapi": "^8.4.0",
     "mongodb": "^2.0.28",
     "mongoose": "^4.0.2",
     "twit": "^1.1.20"

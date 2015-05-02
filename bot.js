@@ -13,10 +13,10 @@ var db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
 
 var userText = {
-  help: 'commands: points [user] (display user\'s points, defaults to you)'
+  help: 'commands: points [user] (display user\'s points), top (display top scores)'
 };
 var mode7Text = {
-  help: 'commands (mode7 only): award <number> <user>, deduct <number> <user>'
+  help: 'commands (mode7 only): award <number> <user>, deduct <number> <user>, top (display top scorers)'
 };
 
 var userSchema = mongoose.Schema({
@@ -37,8 +37,6 @@ function app () {
 
   stream.on('tweet', function (tweet) {
     var args = tweet.text.split(' ');
-    console.log(tweet);
-    console.log(args);
 
     // Don't bother with own tweets, retweets
     if (tweet.user.id === 3224450463 || tweet.retweeted) {
@@ -49,6 +47,9 @@ function app () {
     if (args[0].indexOf('paul_points') === -1) {
       return;
     }
+
+    //console.log(tweet);
+    console.log(args);
 
     var response = '@' + tweet.user.screen_name + ' ';
 
@@ -66,6 +67,9 @@ function app () {
         case 'points':
           getPoints(tweet, args, response, tweetResponse);
           break;
+        case 'top':
+          getTopScorers(tweet, args, response, tweetResponse);
+          break;
         default:
           tweetResponse(response + 'usage: @paul_points command [args] ("help" for a list of commands)', tweet);
       }
@@ -76,7 +80,10 @@ function app () {
           break;
         case 'points':
           getPoints(tweet, args, response, tweetResponse);
-          break; 
+          break;
+        case 'top':
+          getTopScorers(tweet, args, response, tweetResponse);
+          break;
         default:
           tweetResponse(response + 'usage: @paul_points command [args] ("help" for a list of commands)', tweet);
       }
@@ -174,6 +181,33 @@ function awardPoints(tweet, args, response, cb) {
 
     responseData.callback(responseData.response + ' New total: ' + points, tweet);
   });
+}
+
+function getTopScorers(tweet, args, response, cb) {
+  var charLimit = 140;
+  var remainingChars = charLimit - response.length;
+  console.log('I exist!');
+
+  responseData.response = response;
+  responseData.callback = cb;
+
+  var query = User.find({});
+    query.select('screen_name points')
+    .sort('points')
+    .limit(3)
+    .exec(function (err, result) {
+      if (err) {
+        console.error(err);
+      }
+
+      var response = responseData.response;
+
+      for (var i=0; i < result.length; i++) {
+        response += '@' + result[i].screen_name + ': '+ result[i].points +'\n';
+      }
+
+      responseData.callback(response, tweet);
+    });
 }
 
 db.once('open', app);
